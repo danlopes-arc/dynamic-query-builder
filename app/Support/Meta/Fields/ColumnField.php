@@ -15,6 +15,7 @@ readonly class ColumnField extends Field
     /** @param Collection<string, Field> $fields */
     function toSql(Collection $fields, string $prefix): string
     {
-        return "$prefix.$this->name";
+        $path = implode('__', explode('.', $prefix));
+        return "$path.$this->name";
     }
 }
