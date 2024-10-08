@@ -30,6 +30,19 @@ class Subunit extends Type
         return (int)($value * $this->factor);
     }
 
+    function fromDatabase(mixed $value): ?int
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (!is_numeric($value) || filter_var($value, FILTER_VALIDATE_INT) === false) {
+            throw new TypeValidationException('Not an integer.');
+        }
+
+        return (int)($value * $this->factor);
+    }
+
     function toString(mixed $value): string
     {
         $converted = $value / $this->factor;

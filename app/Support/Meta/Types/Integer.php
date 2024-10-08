@@ -16,7 +16,20 @@ class Integer extends Type
         }
 
         if (!is_numeric($value) || filter_var($value, FILTER_VALIDATE_INT) === false) {
-            throw new TypeValidationException('Not a number.');
+            throw new TypeValidationException('Not an integer.');
+        }
+
+        return (int) $value;
+    }
+
+    function fromDatabase(mixed $value): ?int
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (!is_numeric($value) || filter_var($value, FILTER_VALIDATE_INT) === false) {
+            throw new TypeValidationException('Not an integer.');
         }
 
         return (int) $value;

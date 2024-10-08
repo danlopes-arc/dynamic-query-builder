@@ -4,11 +4,12 @@ namespace App\Support\Reports;
 
 use App\Support\Meta\Fields\Field;
 use App\Support\Meta\Model;
+use App\Support\Meta\Types\TypeValidationException;
+use Exception;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Database\Eloquent\Model as EloquentModel;
 
 readonly class Report
 {
@@ -30,7 +31,15 @@ readonly class Report
     /** @return Collection<int, object> */
     public function getRecords(): Collection
     {
-        return $this->toQuery()->get();
+        return $this->toQuery()->get()->map(function (object $record) {
+            return $this->headers->map(function (Header $header) use ($record) {
+                try {
+                    return $header->getType($this->model)->fromDatabase($record->{$header->key});
+                } catch (TypeValidationException $e) {
+                    throw new Exception("Type casting error for [$header->key]: {$e->getMessage()}");
+                }
+            })->all();
+        });
     }
 
     public function toQuery(): Builder
@@ -47,12 +56,12 @@ readonly class Report
             ->undot()
             ->get($this->model->name);
 
-        $selects = $fields
-            ->map(function (Field $field, string $path) use ($fields) {
-                $relations = array_slice(explode('.', $path), 0, -1);
-                $sql = $fields->get($path)->toSql($fields, implode('.', $relations));
+        $selects = $this->headers
+            ->map(function (Header $header) use ($fields) {
+                $relations = array_slice(explode('.', $header->path), 0, -1);
+                $sql = $header->getField($this->model)->toSql($fields, implode('.', [$this->model->name, ...$relations]));
 
-                return DB::raw("$sql as $field->name");
+                return DB::raw("$sql as $header->key");
             })
             ->all();
 

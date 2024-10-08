@@ -14,6 +14,11 @@ class Text extends Type
         return $value === '' ? null : $value;
     }
 
+    public function fromDatabase(mixed $value): ?string
+    {
+        return $value === null ? null : $value;
+    }
+
     function toString(mixed $value): string
     {
         return $value === null ? '' : "$value";

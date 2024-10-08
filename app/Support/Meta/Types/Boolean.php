@@ -18,6 +18,15 @@ class Boolean extends Type
         return $value === '' ? null : $value === 'Y';
     }
 
+    function fromDatabase(mixed $value): ?bool
+    {
+        if (!in_array($value, [false, 0, '0', true, 1, '1'])) {
+            throw new TypeValidationException('Not a boolean.');
+        }
+
+        return $value === null ? null : in_array($value, [true, 1, '1']);
+    }
+
     function toString(mixed $value): string
     {
         return $value === null ? '' : (in_array($value, [true, 1]) ? 'Y' : 'N');

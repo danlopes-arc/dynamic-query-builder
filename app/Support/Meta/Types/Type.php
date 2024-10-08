@@ -16,6 +16,12 @@ abstract class Type
      */
     abstract function fromString(string $value): mixed;
 
+    /**
+     * @return null|T
+     * @throws TypeValidationException
+     */
+    abstract function fromDatabase(mixed $value): mixed;
+
     /** @param null|T $value */
     abstract function toString(mixed $value): string;
 
@@ -30,7 +36,7 @@ abstract class Type
         }
     }
 
-    public function nullable(bool $isNullable = true): self {
+    public function nullable(bool $isNullable = true): static {
         $this->isNullable = $isNullable;
         return $this;
     }
