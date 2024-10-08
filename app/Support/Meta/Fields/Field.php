@@ -20,6 +20,10 @@ abstract readonly class Field
     /** @param Collection<string, Field> $fields */
     abstract function toSql(Collection $fields, string $prefix): string;
 
+    /* ************************************************************************
+     * Static Methods
+     * ************************************************************************/
+
     public static function column(string $name, Type $type): ColumnField
     {
         return new ColumnField($name, $type);

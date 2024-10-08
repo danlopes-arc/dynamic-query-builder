@@ -56,6 +56,9 @@ readonly class Report
             ->undot()
             ->get($this->model->name);
 
+        // TODO: fields depend on relationTree and vice versa. After this line we might have new fields without relations.
+        $fields = static::getRelationDependentFields($this->model, $relationTree, $fields, $this->model->name);
+
         $selects = $this->headers
             ->map(function (Header $header) use ($fields) {
                 $relations = array_slice(explode('.', $header->path), 0, -1);
@@ -67,23 +70,48 @@ readonly class Report
 
         $query = DB::table("{$this->model->table} as {$this->model->name}")->select($selects);
 
-        return self::applyJoins($query, $relationTree, $this->model, $this->model->name);
+        return self::applyJoins($query, $relationTree, $this->model, $fields, $this->model->name);
     }
 
-    private static function applyJoins(Builder $query, array $relationTree, Model $model, string $prefix): Builder
+
+    /**
+     * @param Collection<string, Field> $fields
+     * @return  Collection<string, Field>
+     */
+    private static function getRelationDependentFields(Model $model, array $relationTree, Collection $fields, string $prefix): Collection
+    {
+        $updatedFields = collect($fields);
+
+        foreach ($relationTree as $relationName => $childRelations) {
+            $relation = $model->relations->get($relationName);
+
+            foreach ($relation->dependencies as $relativePath) {
+                // TODO: do i need the merge or $updatedFields = Field::getDependentF...?
+                $dependentFields = Field::getDependentFields($relativePath, $model, $fields, $prefix);
+                $updatedFields = $updatedFields->merge($dependentFields);
+            }
+
+            if ($childRelations) {
+                $updatedFields = self::getRelationDependentFields($relation->getModel(), $childRelations, $updatedFields, "$prefix.$relationName");
+            }
+        }
+
+        return $updatedFields;
+    }
+
+    /** @param Collection<string, Field> $fields */
+    private static function applyJoins(Builder $query, array $relationTree, Model $model, Collection $fields, string $prefix): Builder
     {
         foreach ($relationTree as $relationName => $childRelations) {
             $relation = $model->relations->get($relationName);
-            $alias = $prefix.'__'.$relationName;
+            $alias = str_replace('.', '__', $prefix).'__'.$relationName;
 
-            $query->leftJoin("{$relation->getModel()->table} as $alias", function (JoinClause $join) use ($prefix, $relation, $alias, $childRelations) {
-                foreach ($relation->onColumns as $left => $right) {
-                    $join->on($prefix.'.'.$left, '=', $alias.'.'.$right);
-                }
+            $query->leftJoin("{$relation->getModel()->table} as $alias", function (JoinClause $join) use ($fields, $prefix, $relation, $alias, $childRelations) {
+                $relation->joinClause->apply($join, $fields, $prefix);
             });
 
             if ($childRelations) {
-                self::applyJoins($query, $childRelations, $relation->getModel(), $alias);
+                self::applyJoins($query, $childRelations, $relation->getModel(), $fields, $prefix.'.'.$relationName);
             }
         }
 

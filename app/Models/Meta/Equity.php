@@ -2,6 +2,7 @@
 
 namespace App\Models\Meta;
 use App\Support\Meta\Fields\Field;
+use App\Support\Meta\Wheres\Where;
 use App\Support\Meta\Model;
 use App\Support\Meta\Relation;
 use App\Support\Meta\Types\Type;
@@ -20,7 +21,7 @@ readonly class Equity extends Model
                 Field::column('amount', Type::subunit(2)),
             ],
             relations: [
-                Relation::make('employee', Employee::class, ['employee_id' => 'id']),
+                Relation::make('employee', Employee::class, Where::equals('employee_id', 'employee.id')),
             ],
         );
     }

@@ -2,20 +2,18 @@
 
 namespace App\Support\Meta;
 
+use App\Support\Meta\Wheres\Where;
 use Illuminate\Support\Collection;
 
 readonly class Relation
 {
-    /** @var Collection<string, string> Format local_column => external_column */
-    public Collection $onColumns;
+    /** @var Collection<int, string> $dependencies */
+     public Collection $dependencies;
 
-    /**
-     * @param class-string<Model> $model
-     * @param array<string, string> $onColumns Format local_column => external_column
-     */
-    public function __construct(public string $name, private string $model, array $onColumns)
+    /** @param class-string<Model> $model */
+    public function __construct(public string $name, private string $model, public Where $joinClause)
     {
-        $this->onColumns = collect($onColumns);
+        $this->dependencies = $this->joinClause->dependencies;
     }
 
     public function getModel(): Model
@@ -23,12 +21,9 @@ readonly class Relation
         return new $this->model();
     }
 
-    /**
-     * @param class-string<Model> $model
-     * @param array<string, string> $onColumns Format local_column => external_column
-     */
-    public static function make(string $name, string $model, array $onColumns): static
+    /** @param class-string<Model> $model */
+    public static function make(string $name, string $model, Where $joinClause): static
     {
-        return new static($name, $model, $onColumns);
+        return new static($name, $model, $joinClause);
     }
 }
