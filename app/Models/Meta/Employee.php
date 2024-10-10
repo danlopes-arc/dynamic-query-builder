@@ -30,6 +30,7 @@ readonly class Employee extends Model
             relations: [
                 Relation::make('equity', Equity::class, Where::equals('id', 'equity.employee_id')),
                 Relation::make('manager', Employee::class, Where::equals('manager_id', 'manager.id')),
+                Relation::make('manager_equity', Equity::class, Where::equals('manager.id', 'manager_equity.employee_id')),
             ],
         );
     }

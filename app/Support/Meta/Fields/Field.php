@@ -47,13 +47,38 @@ abstract readonly class Field
         $relations = explode('.', $path);
         $fieldName = array_pop($relations);
 
+        $updatedFields = collect($dependencyFields);
+
+        $currentPrefix = $prefix;
+
         foreach ($relations as $relationName) {
-            $currentModel = $currentModel->relations->get($relationName)->getModel();
+            $relation = $currentModel->relations->get($relationName);
+
+            foreach ($relation->dependencies as $relationPath) {
+                $relationPathRelations = explode('.', $relationPath);
+                $relationPathFieldName = array_pop($relationPathRelations);
+
+                // TODO: refactor
+                if ($relationPathRelations && $relationPathRelations[0] === $relationName) {
+                    $newPath = implode('.', [...array_slice($relationPathRelations, 1), $relationPathFieldName]);
+                    $newPrefix = "$currentPrefix.$relationName";
+
+                    $updatedFields = $updatedFields->merge(
+                        static::getDependentFields($newPath, $relation->getModel(), $updatedFields, $newPrefix)
+                    );
+                } else {
+                    $updatedFields = $updatedFields->merge(
+                        static::getDependentFields($relationPath, $currentModel, $updatedFields, $currentPrefix)
+                    );
+                }
+
+            }
+
+            $currentPrefix = "$prefix.$relationName";
+            $currentModel = $relation->getModel();
         }
 
         $field = $currentModel->fields->get($fieldName);
-
-        $updatedFields = collect($dependencyFields);
 
         foreach ($field->dependencies as $relativePath) {
             $dependentFields = static::getDependentFields($relativePath, $currentModel, $updatedFields, implode('.', [$prefix, ...$relations]));

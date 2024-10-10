@@ -30,10 +30,14 @@ class ExampleTest extends TestCase
                 new Header('manager_quadruple_salary', 'Manager Quadruple Salary', 'manager.quadruple_salary'),
                 new Header('manager_equity_amount', 'Manager Equity Amount', 'manager.equity.amount'),
                 new Header('is_equity_eligible', 'Is Equity Eligible', 'manager.equity.is_eligible'),
+                new Header('manager_equity_amount_2', 'Manager Equity Amount 2', 'manager_equity.amount'),
             ]
         );
 
-        $records = $rep->getRecords();
+        $records = $rep->orderBy([
+            'manager_equity_amount' => 'asc',
+            'id' => 'desc',
+        ])->getRecords();
 
 
         $columns = collect([

@@ -23,12 +23,16 @@ readonly class WhereCondition extends Where
     /** @param Collection<string, Field> $fields */
     function apply(Builder $query, Collection $fields, string $prefix): void
     {
-        $firstRelations = array_slice(explode('.', $this->first), 0, -1);
-        $first = $fields->get("$prefix.$this->first")->toSql($fields, implode('.', [$prefix, ...$firstRelations]));
-
-        $secondRelations = array_slice(explode('.', $this->second), 0, -1);
-        $second = $fields->get("$prefix.$this->second")->toSql($fields, implode('.', [$prefix, ...$secondRelations]));
+        $first = static::resolveDependency($this->first, $fields, $prefix);
+        $second = static::resolveDependency($this->second, $fields, $prefix);
 
         $query->where(DB::raw($first), $this->operator, DB::raw($second), $this->boolean);
+    }
+
+    /** @param Collection<string, Field> $fields */
+    private static function resolveDependency(string $dependency, Collection $fields, string $prefix)
+    {
+        $relations = array_slice(explode('.', $dependency), 0, -1);
+        return $fields->get("$prefix.$dependency")->toSql($fields, implode('.', [$prefix, ...$relations]));
     }
 }

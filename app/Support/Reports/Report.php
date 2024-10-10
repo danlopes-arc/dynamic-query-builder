@@ -16,30 +16,62 @@ readonly class Report
     /** @var Collection<string, Header> $headers */
     public Collection $headers;
 
+
+    /** @var Collection<string, 'asc'|'desc'> $orderBy */
+    private Collection $orderBy;
+
     private Model $model;
 
     /**
      * @param Header[] $headers
      * @param class-string<Model> $model
+     * @param array<string, 'asc'|'dsc'> $orderBy
      */
-    public function __construct(public string $name, string $model, array $headers)
+    public function __construct(public string $name, string $model, array $headers, array $orderBy = [])
     {
         $this->headers = collect($headers)->keyBy('key');
         $this->model = new $model();
+
+        foreach ($orderBy as $key => $direction) {
+            if (!$this->headers->has($key)) {
+                throw new Exception("OrderBy key [$key] is not a header.");
+            }
+        }
+
+        $this->orderBy = collect($orderBy);
+    }
+
+    public function orderBy(array $keys): static
+    {
+        return new static(
+            name: $this->name,
+            model: $this->model::class,
+            headers: $this->headers->values()->all(),
+            orderBy: $keys
+        );
     }
 
     /** @return Collection<int, object> */
     public function getRecords(): Collection
     {
-        return $this->toQuery()->get()->map(function (object $record) {
-            return $this->headers->map(function (Header $header) use ($record) {
-                try {
-                    return $header->getType($this->model)->fromDatabase($record->{$header->key});
-                } catch (TypeValidationException $e) {
-                    throw new Exception("Type casting error for [$header->key]: {$e->getMessage()}");
-                }
-            })->all();
-        });
+        // TODO: extract
+        $query = $this->toQuery();
+
+        foreach ($this->orderBy as $key => $direction) {
+            $query->orderBy($key, $direction);
+        }
+
+        return $query
+            ->get()
+            ->map(function (object $record) {
+                return $this->headers->map(function (Header $header) use ($record) {
+                    try {
+                        return $header->getType($this->model)->fromDatabase($record->{$header->key});
+                    } catch (TypeValidationException $e) {
+                        throw new Exception("Type casting error for [$header->key]: {$e->getMessage()}");
+                    }
+                })->all();
+            });
     }
 
     public function toQuery(): Builder
@@ -56,9 +88,6 @@ readonly class Report
             ->undot()
             ->get($this->model->name);
 
-        // TODO: fields depend on relationTree and vice versa. After this line we might have new fields without relations.
-        $fields = static::getRelationDependentFields($this->model, $relationTree, $fields, $this->model->name);
-
         $selects = $this->headers
             ->map(function (Header $header) use ($fields) {
                 $relations = array_slice(explode('.', $header->path), 0, -1);
@@ -71,32 +100,6 @@ readonly class Report
         $query = DB::table("{$this->model->table} as {$this->model->name}")->select($selects);
 
         return self::applyJoins($query, $relationTree, $this->model, $fields, $this->model->name);
-    }
-
-
-    /**
-     * @param Collection<string, Field> $fields
-     * @return  Collection<string, Field>
-     */
-    private static function getRelationDependentFields(Model $model, array $relationTree, Collection $fields, string $prefix): Collection
-    {
-        $updatedFields = collect($fields);
-
-        foreach ($relationTree as $relationName => $childRelations) {
-            $relation = $model->relations->get($relationName);
-
-            foreach ($relation->dependencies as $relativePath) {
-                // TODO: do i need the merge or $updatedFields = Field::getDependentF...?
-                $dependentFields = Field::getDependentFields($relativePath, $model, $fields, $prefix);
-                $updatedFields = $updatedFields->merge($dependentFields);
-            }
-
-            if ($childRelations) {
-                $updatedFields = self::getRelationDependentFields($relation->getModel(), $childRelations, $updatedFields, "$prefix.$relationName");
-            }
-        }
-
-        return $updatedFields;
     }
 
     /** @param Collection<string, Field> $fields */
